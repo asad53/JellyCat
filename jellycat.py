@@ -249,6 +249,11 @@ def RunScrapper(driver):
                             try:
                                 inventorystatus = driver.find_element_by_xpath(
                                     '//form[@class="fieldwithbutton mb"]').text
+                                inventorystatus=inventorystatus.strip()
+                                if inventorystatus=='':
+                                    inventorystatus='IN-STOCK'
+                                else:
+                                    pass
                             except Exception:
                                 inventorystatus = ''
                                 pass
