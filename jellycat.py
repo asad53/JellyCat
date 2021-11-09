@@ -38,7 +38,7 @@ def configure_driver():
     #chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
     #prefs = {"profile.managed_default_content_settings.images": 2}
     #chrome_options.add_experimental_option("prefs", prefs)             #we have disabled pictures (so no time is wasted in loading them)
-    driver = webdriver.Chrome(executable_path=r"C:\chromedriver_win32\chromedriver.exe", options = chrome_options)   #you don't have to download chromedriver it will be downloaded by itself and will be saved in cache
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)   #you don't have to download chromedriver it will be downloaded by itself and will be saved in cache
     return driver
 
 def RunScrapper(driver):
@@ -238,9 +238,13 @@ def RunScrapper(driver):
                                 x = 1
                                 for img in imgs:
                                     if x == 1:
-                                        allimages = img.get_attribute('src')
+                                        rd=img.get_attribute('src')
+                                        rd=rd.replace("thumbnail","large")
+                                        allimages = rd
                                     else:
-                                        allimages = allimages + ", " + img.get_attribute('src')
+                                        rd = img.get_attribute('src')
+                                        rd = rd.replace("thumbnail", "large")
+                                        allimages = allimages + ", " + rd
                                     x += 1
                             except Exception:
                                 allimages = ''
