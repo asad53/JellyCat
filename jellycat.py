@@ -227,7 +227,7 @@ def RunScrapper(driver):
                                     ind=SKULIST.index(sku)
                                     ind+=1
                                     c7 = sheet1.cell(row=ind, column=7)
-                                    c7.value = navigationpath
+                                    c7.value = c7.value + ", "+ sku
                                     wb.save("jellycat.xlsx")
                                 else:
                                     SKULIST.append(sku)
@@ -331,7 +331,7 @@ def RunScrapper(driver):
                             ind = SKULIST.index(sku)
                             ind += 1
                             c7 = sheet1.cell(row=ind, column=7)
-                            c7.value = navigationpath
+                            c7.value = c7.value + ", "+ sku
                             wb.save("jellycat.xlsx")
                         else:
                             SKULIST.append(sku)
