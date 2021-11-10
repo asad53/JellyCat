@@ -36,8 +36,8 @@ def configure_driver():
     chrome_options.add_argument("--disable-extensions")       #will disable developer mode extensions
     #chrome_options.add_argument('--proxy-server=%s' % PROXY)
     #chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-    #prefs = {"profile.managed_default_content_settings.images": 2}
-    #chrome_options.add_experimental_option("prefs", prefs)             #we have disabled pictures (so no time is wasted in loading them)
+    prefs = {"profile.managed_default_content_settings.images": 2}
+    chrome_options.add_experimental_option("prefs", prefs)             #we have disabled pictures (so no time is wasted in loading them)
     driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)   #you don't have to download chromedriver it will be downloaded by itself and will be saved in cache
     return driver
 
@@ -84,7 +84,7 @@ def RunScrapper(driver):
     #setting row number to 2
     mi=2
 
-
+    SKULIST=[]
     mainlink="https://www.jellycat.com/eu/"
     driver.get(mainlink)
     WebDriverWait(driver,40).until(expected_conditions.visibility_of_element_located((By.ID,'nav-level0')))
@@ -103,6 +103,7 @@ def RunScrapper(driver):
            majlinks.append(l.get_attribute('href'))
        x+=1
     alllinks=[]
+    majlinks=['https://www.jellycat.com/eu/retired-designs/']+majlinks
     for m in majlinks:
         driver.get(m)
         WebDriverWait(driver,40).until(expected_conditions.visibility_of_all_elements_located((By.XPATH,'//div[@class="mtb0-5"]')))
@@ -120,7 +121,7 @@ def RunScrapper(driver):
             driver.get(al)
             linkstogo = []
             WebDriverWait(driver, 40).until(
-                expected_conditions.visibility_of_element_located((By.ID, 'productDataOnPage')))
+                expected_conditions.visibility_of_element_located((By.ID, 'productDataNavCTOP')))
             noitems = driver.find_element_by_id('productDataNavCTOP').text
             noitems = noitems.replace("items", "")
             noitems = noitems.strip()
@@ -128,7 +129,11 @@ def RunScrapper(driver):
             if noitems >= 24:
                 scrollno = int(math.ceil(noitems / 24))
                 for sn in range(scrollno):
-                    element = driver.find_element_by_id("listing-footer")
+                    WebDriverWait(driver, 40).until(
+                        expected_conditions.visibility_of_element_located((By.ID, 'productDataOnPage')))
+                    mainbl = driver.find_element_by_id('productDataOnPage')
+                    container = mainbl.find_elements_by_xpath('//a[@data-listing="name"]')
+                    element = container[-1]
                     actions = ActionChains(driver)
                     actions.move_to_element(element).perform()
                     time.sleep(3)
@@ -205,31 +210,153 @@ def RunScrapper(driver):
                     colormain1 = driver.find_element_by_xpath('//div[@class="nogaps"]')
                     colors1 = colormain1.find_elements_by_xpath(
                         './/div[@class="pointer width4 height4 inline-block mr0-5 mb0-5"]')
-
-                    for color in range(len(colors1)):
-                        colormain = driver.find_element_by_xpath('//div[@class="nogaps"]')
-                        colors = colormain.find_elements_by_xpath(
-                            './/div[@class="pointer width4 height4 inline-block mr0-5 mb0-5"]')
-                        colorname = colors[color].find_element_by_tag_name('img').get_attribute('alt')
-                        colors[color].click()
-                        sizemain1 = driver.find_element_by_xpath('//div[@class="f-13 nogaps"]')
-                        sizes1 = sizemain1.find_elements_by_xpath(
-                            './/div[@class="pointer width6 height6 inline-block mr0-5 mb0-5 f-upper"]')
-                        for size in range(len(sizes1)):
-                            sizemain = driver.find_element_by_xpath('//div[@class="f-13 nogaps"]')
-                            sizes = sizemain.find_elements_by_xpath(
+                    if len(colors1) != 0:
+                        for color in range(len(colors1)):
+                            colormain = driver.find_element_by_xpath('//div[@class="nogaps"]')
+                            colors = colormain.find_elements_by_xpath(
+                                './/div[@class="pointer width4 height4 inline-block mr0-5 mb0-5"]')
+                            colorname = colors[color].find_element_by_tag_name('img').get_attribute('alt')
+                            colors[color].click()
+                            sizemain1 = driver.find_element_by_xpath('//div[@class="f-13 nogaps"]')
+                            sizes1 = sizemain1.find_elements_by_xpath(
                                 './/div[@class="pointer width6 height6 inline-block mr0-5 mb0-5 f-upper"]')
-                            sizename = sizes[size].text
-                            sizes[size].click()
+                            for size in range(len(sizes1)):
+                                sku = driver.find_element_by_xpath('//div[@data-bind="text:sku"]').text
 
-                            productname = driver.find_element_by_xpath('//h1[@data-bind="text:name"]').text
+                                if sku in SKULIST:
+                                    ind=SKULIST.index(sku)
+                                    ind+=1
+                                    c7 = sheet1.cell(row=ind, column=7)
+                                    c7.value = navigationpath
+                                    wb.save("jellycat.xlsx")
+                                else:
+                                    SKULIST.append(sku)
+                                    sizemain = driver.find_element_by_xpath('//div[@class="f-13 nogaps"]')
+                                    sizes = sizemain.find_elements_by_xpath(
+                                        './/div[@class="pointer width6 height6 inline-block mr0-5 mb0-5 f-upper"]')
+                                    sizename = sizes[size].text
+                                    sizes[size].click()
 
+                                    productname = driver.find_element_by_xpath('//h1[@data-bind="text:name"]').text
+
+                                    pricexpath = '//span[@data-bind="text: price, css:pricecss, style:{' + "'display'" + ':pricedisplay}"]'
+                                    price = driver.find_element_by_xpath(pricexpath).text
+                                    regularprice = price
+                                    saleprice = price
+
+                                    allimages = ''
+                                    try:
+                                        altimgs = driver.find_element_by_id('alternativeImages')
+                                        imgs = altimgs.find_elements_by_tag_name('img')
+                                        x = 1
+                                        for img in imgs:
+                                            if x == 1:
+                                                rd = img.get_attribute('src')
+                                                rd = rd.replace("thumbnail", "large")
+                                                allimages = rd
+                                            else:
+                                                rd = img.get_attribute('src')
+                                                rd = rd.replace("thumbnail", "large")
+                                                allimages = allimages + ", " + rd
+                                            x += 1
+                                    except Exception:
+                                        allimages = ''
+                                        pass
+
+                                    try:
+                                        inventorystatus = driver.find_element_by_xpath(
+                                            '//form[@class="fieldwithbutton mb"]').text
+                                        inventorystatus = inventorystatus.strip()
+                                        if inventorystatus == '':
+                                            inventorystatus = 'IN-STOCK'
+                                        else:
+                                            pass
+                                    except Exception:
+                                        inventorystatus = ''
+                                        pass
+
+                                    try:
+                                        inventorydescription = driver.find_element_by_xpath(
+                                            '//div[@class="mt0-25"]').text
+                                    except Exception:
+                                        inventorydescription = ''
+                                        pass
+
+                                    print("Product Name: ", productname)
+                                    print("Size: ", sizename)
+                                    print("Color Name: ", colorname)
+                                    print("SKU: ", sku)
+                                    print("Price: ", price)
+                                    print("Images: ", allimages)
+                                    print("Inventory Status: ", inventorystatus)
+                                    print("Inventory Description: ", inventorydescription)
+                                    c1 = sheet1.cell(row=mi, column=1)
+                                    c1.value = linktogo
+                                    c2 = sheet1.cell(row=mi, column=2)
+                                    c2.value = shortdescription
+                                    c3 = sheet1.cell(row=mi, column=3)
+                                    c3.value = inventorystatus
+                                    c4 = sheet1.cell(row=mi, column=4)
+                                    c4.value = inventorydescription
+                                    c5 = sheet1.cell(row=mi, column=5)
+                                    c5.value = longdescription
+                                    c6 = sheet1.cell(row=mi, column=6)
+                                    c6.value = safetycare
+                                    c7 = sheet1.cell(row=mi, column=7)
+                                    c7.value = navigationpath
+                                    c8 = sheet1.cell(row=mi, column=8)
+                                    c8.value = productname
+                                    c9 = sheet1.cell(row=mi, column=9)
+                                    c9.value = sizename
+                                    c10 = sheet1.cell(row=mi, column=10)
+                                    c10.value = colorname
+                                    c11 = sheet1.cell(row=mi, column=11)
+                                    c11.value = regularprice
+                                    c12 = sheet1.cell(row=mi, column=12)
+                                    c12.value = saleprice
+                                    c13 = sheet1.cell(row=mi, column=13)
+                                    c13.value = sku
+                                    c14 = sheet1.cell(row=mi, column=14)
+                                    c14.value = allimages
+                                    mi += 1
+                                    print("---------------------")
+
+                    else:
+                        try:
                             sku = driver.find_element_by_xpath('//div[@data-bind="text:sku"]').text
+                        except Exception:
+                            sku = ''
+                            pass
+                        if sku in SKULIST:
+                            ind = SKULIST.index(sku)
+                            ind += 1
+                            c7 = sheet1.cell(row=ind, column=7)
+                            c7.value = navigationpath
+                            wb.save("jellycat.xlsx")
+                        else:
+                            SKULIST.append(sku)
+                            try:
+                                productname = driver.find_element_by_xpath('//h1[@data-bind="text:name"]').text
+                            except Exception:
+                                productname = ''
+                                pass
 
-                            pricexpath = '//span[@data-bind="text: price, css:pricecss, style:{' + "'display'" + ':pricedisplay}"]'
-                            price = driver.find_element_by_xpath(pricexpath).text
-                            regularprice = price
-                            saleprice = price
+                            try:
+                                sku = driver.find_element_by_xpath('//div[@data-bind="text:sku"]').text
+                            except Exception:
+                                sku = ''
+                                pass
+
+                            try:
+                                pricexpath = '//span[@data-bind="text: price, css:pricecss, style:{' + "'display'" + ':pricedisplay}"]'
+                                price = driver.find_element_by_xpath(pricexpath).text
+                                regularprice = price
+                                saleprice = price
+                            except Exception:
+                                regularprice = ''
+                                saleprice = ''
+                                price = ''
+                                pass
 
                             allimages = ''
                             try:
@@ -238,8 +365,8 @@ def RunScrapper(driver):
                                 x = 1
                                 for img in imgs:
                                     if x == 1:
-                                        rd=img.get_attribute('src')
-                                        rd=rd.replace("thumbnail","large")
+                                        rd = img.get_attribute('src')
+                                        rd = rd.replace("thumbnail", "large")
                                         allimages = rd
                                     else:
                                         rd = img.get_attribute('src')
@@ -253,9 +380,9 @@ def RunScrapper(driver):
                             try:
                                 inventorystatus = driver.find_element_by_xpath(
                                     '//form[@class="fieldwithbutton mb"]').text
-                                inventorystatus=inventorystatus.strip()
-                                if inventorystatus=='':
-                                    inventorystatus='IN-STOCK'
+                                inventorystatus = inventorystatus.strip()
+                                if inventorystatus == '':
+                                    inventorystatus = 'IN-STOCK'
                                 else:
                                     pass
                             except Exception:
@@ -269,13 +396,12 @@ def RunScrapper(driver):
                                 pass
 
                             print("Product Name: ", productname)
-                            print("Size: ", sizename)
-                            print("Color Name: ", colorname)
                             print("SKU: ", sku)
                             print("Price: ", price)
                             print("Images: ", allimages)
                             print("Inventory Status: ", inventorystatus)
                             print("Inventory Description: ", inventorydescription)
+
                             c1 = sheet1.cell(row=mi, column=1)
                             c1.value = linktogo
                             c2 = sheet1.cell(row=mi, column=2)
@@ -293,9 +419,9 @@ def RunScrapper(driver):
                             c8 = sheet1.cell(row=mi, column=8)
                             c8.value = productname
                             c9 = sheet1.cell(row=mi, column=9)
-                            c9.value = sizename
+                            c9.value = ""
                             c10 = sheet1.cell(row=mi, column=10)
-                            c10.value = colorname
+                            c10.value = ""
                             c11 = sheet1.cell(row=mi, column=11)
                             c11.value = regularprice
                             c12 = sheet1.cell(row=mi, column=12)
@@ -305,7 +431,8 @@ def RunScrapper(driver):
                             c14 = sheet1.cell(row=mi, column=14)
                             c14.value = allimages
                             mi += 1
-                            print("---------------------")
+                            print("--------------------------")
+                            pass
                     wb.save("jellycat.xlsx")
                 except Exception:
                     print("Product Scrapping Failed")
